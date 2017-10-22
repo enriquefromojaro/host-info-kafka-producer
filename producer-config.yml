@@ -1,0 +1,8 @@
+---
+host_name: your_host_name
+email: your_email
+monitoring:
+  cpu:
+    interval: 20
+    offline-interval: 0
+
