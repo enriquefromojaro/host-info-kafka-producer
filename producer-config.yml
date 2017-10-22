@@ -1,8 +1,11 @@
 ---
 host_name: your_host_name
 email: your_email
+kafka: 192.168.1.49:9092
 monitoring:
   cpu:
-    interval: 20
+    interval: 5
     offline-interval: 0
+    percpu: true
+    cpu: -1
 
