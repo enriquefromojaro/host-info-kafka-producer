@@ -3,7 +3,7 @@ import time
 
 from monitors.cpu import CPUMonitor
 from producers.settings import settings as global_settings
-from kafka import  KafkaProducer
+from kafka import KafkaProducer
 
 
 class MonitoringProducer():
@@ -33,7 +33,8 @@ class CPUProducer(MonitoringProducer):
         self.topic = topic
         self.settings = settings
         self.monitor = CPUMonitor()
-        self.kafka_producer = KafkaProducer(bootstrap_servers='192.168.1.49', client_id=global_settings['host_name'])
+        print('Kafka', global_settings['kafka'])
+        self.kafka_producer = KafkaProducer(bootstrap_servers=global_settings['kafka'] , client_id=global_settings['host_name'])
 
     @property
     def _generator(self):
@@ -59,7 +60,7 @@ class CPUProducer(MonitoringProducer):
         }
         result = json.dumps(result)
         print('CPU: ', result)
-        self.kafka_producer.send('CPU', result.encode())
+        print('None? ', self.kafka_producer.send('cpu', result.encode()))
         print('Sent to kafka')
 
 
