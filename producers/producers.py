@@ -2,6 +2,7 @@ import json
 import time
 
 from monitors.cpu import CPUMonitor
+from monitors.proccess import ProccessMonitor
 from producers.settings import settings as global_settings
 from kafka import KafkaProducer
 
@@ -28,7 +29,7 @@ class MonitoringProducer():
 
 
 class CPUProducer(MonitoringProducer):
-
+    topic = 'cpu'
     def __init__(self, topic='cpu', settings=global_settings['monitoring']['cpu']):
         self.topic = topic
         self.settings = settings
@@ -46,7 +47,7 @@ class CPUProducer(MonitoringProducer):
         def generator():
             while True:
                 yield monitor.get_percentage(cpu, percpu)
-                time.sleep(interval -1)
+                time.sleep(interval - 1)
         return generator()
 
     def handle(self, element):
@@ -60,11 +61,73 @@ class CPUProducer(MonitoringProducer):
         }
         result = json.dumps(result)
         print('CPU: ', result)
-        print('None? ', self.kafka_producer.send('cpu', result.encode()))
-        print('Sent to kafka')
+        self.kafka_producer.send('cpu', result.encode())
 
 
-if __name__ == '__main__':
-    print('Welcome to Kofku!!')
+class ProccessMonitorProducer(MonitoringProducer):
+    topic = 'proccesses'
 
-    CPUProducer().produce()
+    def __init__(self, topic='processes', proccesses=global_settings['monitoring']['processes']):
+        self.processes_m_data = proccesses['watch']
+        self.processes_m_data = [dict(p, strikes=0) for p in self.processes_m_data]
+        self.watched_list = []
+        self.topic = topic
+        self.intervale = proccesses['interval']
+        self.states_producer = KafkaProducer(bootstrap_servers=global_settings['kafka'],
+                                            client_id=global_settings['host_name'], acks='all', retries=2)
+        # self.soft_states_producer = KafkaProducer(bootstrap_servers=global_settings['kafka'],
+        #                                           client_id=global_settings['host_name'])
+        self.monitor = ProccessMonitor()
+        self.monitoring = self.monitor.associate_to_list(self.processes_m_data.copy())
+        for m in self.monitoring:
+            self.handle(m)
+
+    def handle(self, element):
+        state_runing = {
+            True: 'UP',
+            False: 'DOWN'
+        }
+        event_type = 'SOFT'
+        now = time.time()
+        # 1st time
+        # By default, we assume that the initial hard state is the opposite to the given one,
+        #  so we can assure the change when it is confirmed
+        if 'hard_state' not in element:
+            element['hard_state'] = state_runing[not element['running']]
+            element['strikes'] = 0
+            element['hard_state_timestamp'] = now
+        # if current state is the same that the hard, we reset the strikes
+        if state_runing == element['running']:
+            element['strikes'] = 0
+        else:
+            n = element['strikes']
+            element['strikes'] = (n+1) % (element['notification-attempts']+1)
+            # hard state change!!
+            if element['strikes'] == 0:
+                print('HARD!!!!!!!!!!!!!!!')
+                event_type = 'HARD'
+                element['hard_state_timestamp'] = now
+                element['hard_state'] = state_runing[element['running']]
+        data = {
+            'type': event_type,
+            'state': state_runing[element['running']],
+            'hard_state': element['hard_state'],
+            'hard_state_timestamp': element['hard_state_timestamp'],
+            'proccess': element['command'],
+            'display_name': element['display_name'],
+            'timestamp': now
+        }
+
+        print("Data: ", data)
+        self.states_producer.send('processes', json.dumps(data).encode('utf-8'), partition=int(data['type'] == 'HARD'))
+
+    @property
+    def _generator(self):
+        while True:
+            for i in range(len(self.monitoring)):
+                if self.monitoring[i].get('proccess'):
+                    del self.monitoring[i]['proccess']
+            self.monitoring = self.monitor.associate_to_list(self.monitoring)
+            for m in self.monitoring:
+                yield m
+            time.sleep(self.intervale)

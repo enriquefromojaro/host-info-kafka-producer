@@ -1,11 +1,42 @@
 ---
 host_name: your_host_name
-email: your_email
-kafka: 172.17.0.1:9092
+email: fdvsfv
+kafka: "172.17.0.1:9092"
 monitoring:
   cpu:
     interval: 5
     offline-interval: 0
     percpu: true
     cpu: -1
-
+  processes:
+    interval: 60
+    watch:
+      - command: dockerd
+        username: root
+        notification-attempts: 15
+        display_name: "Docker service"
+      - command: "docker-containerd"
+        username: root
+        notification-attempts: 15
+        display_name: "Docker container service"
+      - command: "docker-proxy"
+        username: root
+        notification-attempts: 15
+        display_name: "Kafka"
+        cmd_arguments:
+          - "-host-port"
+          - "9092"
+      - command: "docker-proxy"
+        username: root
+        notification-attempts: 15
+        display_name: "Zookeeper"
+        cmd_arguments:
+          - "-host-port"
+          - "2181"
+      - command: "hot-potato"
+        username: root
+        notification-attempts: 2
+        display_name: "non-existen proceess"
+      - command: "bash"
+        notification-attempts: 15
+        display_name: "Bash"
