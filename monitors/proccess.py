@@ -19,19 +19,19 @@ class ProccessMonitor(object):
             return matches
 
         candidates = [
-            dict(next((el for el in lst if is_proccess(p, el)), {}), proccess=p)
+            dict(next((el for el in lst if is_proccess(p, el)), {}), process=p)
             for p in psutil.process_iter(['username', 'pid', 'cmdline', 'name', 'status'])
         ]
         print('Candidates : ', len(candidates))
         candidates = [c for c in candidates if len(c.keys()) > 1]
         print('Candidates : ', len(candidates))
         for p in candidates:
-            print(p['proccess'].info)
+            print(p['process'].info)
         result = candidates + lst #matching processes + non matching processes
         result = [
             dict(r,
-                 running=bool(r.get('proccess') and r['proccess'].is_running()
-                         and r['proccess'].status() != psutil.STATUS_ZOMBIE),
+                 running=bool(r.get('process') and r['process'].is_running()
+                         and r['process'].status() != psutil.STATUS_ZOMBIE),
              )
             for r in result
         ]

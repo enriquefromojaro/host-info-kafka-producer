@@ -1,6 +1,6 @@
 ---
 host_name: your_host_name
-email: fdvsfv
+email: kofku@yopmail.com
 kafka: "172.17.0.1:9092"
 monitoring:
   cpu:
@@ -26,6 +26,13 @@ monitoring:
         cmd_arguments:
           - "-host-port"
           - "9092"
+      - command: "docker-proxy"
+        username: root
+        notification-attempts: 15
+        display_name: "InfluxDB"
+        cmd_arguments:
+          - "-host-port"
+          - "8086"
       - command: "docker-proxy"
         username: root
         notification-attempts: 15

@@ -30,7 +30,7 @@ class MonitoringProducer():
 
 class CPUProducer(MonitoringProducer):
     topic = 'cpu'
-    def __init__(self, topic='cpu', settings=global_settings['monitoring']['cpu']):
+    def __init__(self, topic='cpu', settings=global_settings.get('monitoring', {}).get('cpu', {})):
         self.topic = topic
         self.settings = settings
         self.monitor = CPUMonitor()
@@ -65,14 +65,14 @@ class CPUProducer(MonitoringProducer):
 
 
 class ProccessMonitorProducer(MonitoringProducer):
-    topic = 'proccesses'
+    topic = 'processes'
 
-    def __init__(self, topic='processes', proccesses=global_settings['monitoring']['processes']):
-        self.processes_m_data = proccesses['watch']
+    def __init__(self, topic='processes', processes=global_settings['monitoring']['processes']):
+        self.processes_m_data = processes['watch']
         self.processes_m_data = [dict(p, strikes=0) for p in self.processes_m_data]
         self.watched_list = []
         self.topic = topic
-        self.intervale = proccesses['interval']
+        self.interval = processes['interval']
         self.states_producer = KafkaProducer(bootstrap_servers=global_settings['kafka'],
                                             client_id=global_settings['host_name'], acks='all', retries=2)
         # self.soft_states_producer = KafkaProducer(bootstrap_servers=global_settings['kafka'],
@@ -97,11 +97,12 @@ class ProccessMonitorProducer(MonitoringProducer):
             element['strikes'] = 0
             element['hard_state_timestamp'] = now
         # if current state is the same that the hard, we reset the strikes
-        if state_runing == element['running']:
+        if element['hard_state'] == state_runing[element['running']]:
             element['strikes'] = 0
         else:
             n = element['strikes']
             element['strikes'] = (n+1) % (element['notification-attempts']+1)
+            print('different: {hard_state} --> {running} ({strikes} attempts)'.format(**element))
             # hard state change!!
             if element['strikes'] == 0:
                 print('HARD!!!!!!!!!!!!!!!')
@@ -113,9 +114,11 @@ class ProccessMonitorProducer(MonitoringProducer):
             'state': state_runing[element['running']],
             'hard_state': element['hard_state'],
             'hard_state_timestamp': element['hard_state_timestamp'],
-            'proccess': element['command'],
+            'process': element['command'],
             'display_name': element['display_name'],
-            'timestamp': now
+            'timestamp': now,
+            'host_name': global_settings['host_name'],
+            'email': global_settings['email']
         }
 
         print("Data: ", data)
@@ -125,9 +128,9 @@ class ProccessMonitorProducer(MonitoringProducer):
     def _generator(self):
         while True:
             for i in range(len(self.monitoring)):
-                if self.monitoring[i].get('proccess'):
-                    del self.monitoring[i]['proccess']
+                if self.monitoring[i].get('process'):
+                    del self.monitoring[i]['process']
             self.monitoring = self.monitor.associate_to_list(self.monitoring)
             for m in self.monitoring:
                 yield m
-            time.sleep(self.intervale)
+            time.sleep(self.interval)
